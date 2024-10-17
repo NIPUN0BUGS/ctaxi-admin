@@ -1,0 +1,109 @@
+/* App.css */
+.driver-management-container {
+  display: flex;
+  align-items: center; /* Centers the content vertically */
+  justify-content: center; /* Centers the content horizontally */
+  height: 100%; /* Adjust this based on the parent container height */
+  padding: 10px;
+}
+
+
+
+.action-buttons button {
+  min-width: 80px;
+}
+
+.locationDropdown{
+  max-width: 300px;
+  min-width: 150px;
+  margin-right: 10px;
+}
+
+.driverLocation{
+  width: 150px;
+}
+
+.driverTableContainer {
+  display: flex;
+  justify-content: flex-start; /* Aligns content to the left */
+  align-items: flex-start; /* Aligns items to the top */
+  min-height: 100vh; /* Full viewport height */
+  padding: 0; /* No padding for left alignment */
+  box-sizing: border-box;
+}
+
+/* The table itself */
+.driverTable {
+  width: 100%; /* Full width */
+  max-width: 1900px; /* Optional max width */
+  margin-top: -100px;
+  margin-right: 900px; /* No margin to prevent centering */
+  border-radius: 8px;
+  padding: 2px;
+}
+
+/* Additional styles for the Paper component to remove padding */
+.driverTableBorder {
+  padding: 0; /* Optional: remove padding */
+}
+
+
+
+
+/* Ensure action buttons are in a single line */
+.action-buttons {
+  display: flex;
+  gap: 10px; /* Adds space between the buttons */
+}
+
+.driverTableBorder {
+  border: 2px solid rgb(172, 56, 207); /* Sets the border width and color */
+  border-radius: 8px; /* Optional: to match the rounded corners */
+}
+
+.driverTable tbody tr:nth-child(odd) {
+  background-color: #f2f2f2; /* Light gray for odd rows */
+}
+
+.driverTable tbody tr:nth-child(even) {
+  background-color: #ffffff; /* White for even rows */
+}
+
+/* Optional: Hover effect for rows */
+.driverTable tbody tr:hover {
+  background-color: #e0e0e0; /* Slightly darker on hover */
+}
+.editBtn, .deleteBtn {
+  width: 100px; /* Set the desired width */
+  height: 40px; /* Set the desired height */
+  display: inline-block;
+  text-align: center;
+  line-height: 40px; /* Vertically center the text */
+  font-size: 14px; /* Font size to maintain consistent size */
+  cursor: pointer;
+  border-radius: 5px; /* Optional: Add a bit of rounded corners */
+}
+
+.editBtn {
+  background-color: transparent; /* or your desired default color */
+  color: black; /* Set a default text color */
+  border: 1px solid blue; /* Optional border */
+  transition: background-color 0.3s ease; /* Smooth transition */
+}
+
+.editBtn:hover {
+  background-color: blue; /* Change background color on hover */
+  color: white; /* Change text color on hover */
+}
+
+.deleteBtn {
+  background-color: red; /* Default background color */
+  color: black !important; /* Default text color */
+  border: none; /* No border */
+  transition: background-color 0.3s ease; /* Smooth transition */
+}
+
+.deleteBtn:hover {
+  background-color: darkred; /* Change to darker red on hover */
+  color: white !important;
+}
