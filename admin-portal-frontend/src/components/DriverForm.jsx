@@ -24,12 +24,13 @@ import AdminLayout from '../common/AdminLayout';
 import locations from '../config/Locations';
 import Avatar from '@mui/material/Avatar';
 import Box from '@mui/material/Box';
-import IconButton from '@mui/material/IconButton';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import ClearIcon from '@mui/icons-material/Clear';
+import { IconButton, InputAdornment } from '@mui/material';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 
-
-
+const licensePlatePattern = /^[A-Z]{3}-\d{4}$/; // LICENSE PLATE LOGIC
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
   backgroundColor: theme.palette.primary.main,
@@ -53,6 +54,7 @@ const DriverForm = () => {
     vehicleColor: '',
     vehicleLicencePlate: '',
     driverLocation: '',
+    driverPassword: '',
     driverAvailability: true,
     profilePhoto: null,
   });
@@ -63,6 +65,7 @@ const DriverForm = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(1);
   const [rowsPerPage] = useState(5);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     fetchDrivers();
@@ -88,10 +91,17 @@ const DriverForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!driver.driverName || !driver.driverPhone || !driver.vehicleLicencePlate || !driver.driverLocation) {
+    if (!driver.driverName || !driver.driverPhone || !driver.vehicleLicencePlate || !driver.driverLocation || !driver.driverPassword) {
       setErrorMessage('Please fill out all required fields.');
       return;
     }
+
+    // Validate the license plate format
+    if (!licensePlatePattern.test(driver.vehicleLicencePlate)) {
+      setErrorMessage('License plate must be in the format "ABN-2024".');
+      return;
+    }
+
     setErrorMessage('');
 
     const formData = new FormData();
@@ -100,6 +110,7 @@ const DriverForm = () => {
     formData.append('vehicleColor', driver.vehicleColor);
     formData.append('vehicleLicencePlate', driver.vehicleLicencePlate);
     formData.append('driverLocation', driver.driverLocation);
+    formData.append('driverPassword', driver.driverPassword);
     formData.append('driverAvailability', driver.driverAvailability);
     if (driver.profilePhoto) {
       formData.append('profilePhoto', driver.profilePhoto);
@@ -119,12 +130,14 @@ const DriverForm = () => {
       });
     }
 
+    // Resetting form
     setDriver({
       driverName: '',
       driverPhone: '',
       vehicleColor: '',
       vehicleLicencePlate: '',
       driverLocation: '',
+      driverPassword: '',
       driverAvailability: true,
       profilePhoto: null,
     });
@@ -133,7 +146,12 @@ const DriverForm = () => {
   };
 
   const handleEdit = (driver) => {
-    setDriver(driver);
+    setDriver({
+      ...driver,
+      profilePhoto: driver.profilePhoto
+        ? `http://localhost:8082/uploads/${driver.profilePhoto}` // Adjust the path if needed
+        : null,
+    });
     setEditingId(driver.id);
   };
 
@@ -205,7 +223,7 @@ const DriverForm = () => {
               </Grid>
               <Grid item xs={12} sm={3}>
                 <FormControl fullWidth required variant="outlined">
-                  <InputLabel>Location</InputLabel> {/* The label */}
+                  <InputLabel>Location</InputLabel>
                   <Select
                     name="driverLocation"
                     value={driver.driverLocation}
@@ -229,36 +247,27 @@ const DriverForm = () => {
                       borderRadius: 3,
                       padding: 1.5,
                       backgroundColor: '#f9f9f9',
-                      transition: 'transform 0.3s, box-shadow 0.3s',
-                      
                     }}
                   >
                     <FormControl fullWidth>
-                      <Box
-                        sx={{
-                          position: 'relative',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                        }}
-                      >
+                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                         <Avatar
                           alt="Profile Photo"
-                          src={driver.profilePhoto instanceof File ? URL.createObjectURL(driver.profilePhoto) : undefined}
+                          src={
+                            driver.profilePhoto instanceof File
+                              ? URL.createObjectURL(driver.profilePhoto)
+                              : driver.profilePhoto // This will handle the URL case for existing photos
+                          }
                           sx={{
                             width: 70,
                             height: 70,
                             border: '2px solid #90caf9',
                             boxShadow: '0 2px 5px rgba(0, 0, 0, 0.2)',
                           }}
-                          
                         />
-                        
+
                         <Box sx={{ display: 'flex', gap: 1, marginTop: 1.5 }}>
-                          <IconButton
-                            color="primary"
-                            component="label"
-                          >
+                          <IconButton color="primary" component="label">
                             <CloudUploadIcon sx={{ fontSize: 22 }} />
                             <input
                               id="profilePhotoUpload"
@@ -277,163 +286,129 @@ const DriverForm = () => {
                                 profilePhoto: null,
                               }));
                             }}
-                            sx={{
-                              bgcolor: '#f5f5f5',
-                              borderRadius: '50%',
-                              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-                              '&:hover': {
-                                bgcolor: '#ffcccc',
-                                boxShadow: '0 2px 5px rgba(0, 0, 0, 0.2)',
-                              },
-                            }}
                           >
                             <ClearIcon sx={{ fontSize: 22 }} />
                           </IconButton>
                         </Box>
-                        {driver.profilePhoto && (
-                          <Typography
-                            variant="caption"
-                            display="block"
-                            sx={{
-                              marginTop: 0.8,
-                              textAlign: 'center',
-                              color: '#888',
-                            }}
-                          >
-                            {driver.profilePhoto.name}
-                          </Typography>
-                        )}
                       </Box>
                     </FormControl>
                   </Box>
-                  <input
-                    id="profilePhotoUpload"
-                    type="file"
-                    name="profilePhoto"
-                    accept="image/*"
-                    onChange={handleChange}
-                    hidden
-                  />
                 </label>
               </Grid>
 
+              <Grid item xs={12} sm={3}>
+                <TextField
+                  label="Password"
+                  name="driverPassword"
+                  type={showPassword ? 'text' : 'password'} // Toggle between text and password
+                  value={driver.driverPassword}
+                  onChange={handleChange}
+                  fullWidth
+                  required
+                  // Add the following lines
+                  inputProps={{ maxLength: 8, minLength: 8 }} // Enforce 8-character limit
+                  error={driver.driverPassword.length !== 8} // Show error if not exactly 8 characters
+                  helperText={driver.driverPassword.length !== 8 ? "Password must be exactly 8 characters" : ""} // Error message
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          onClick={() => setShowPassword(!showPassword)}
+                          edge="end"
+                        >
+                          {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Grid>
 
-              <Grid item xs={12}>
-                <Button type="submit" variant="contained" color="primary">
+              <Grid item xs={12} sm={3}>
+                <Button type="submit" variant="contained" fullWidth>
                   {editingId ? 'Update Driver' : 'Add Driver'}
                 </Button>
               </Grid>
             </Grid>
+            {errorMessage && <Typography color="error">{errorMessage}</Typography>}
           </form>
-          {errorMessage && <Typography color="error">{errorMessage}</Typography>}
         </Paper>
 
-        {/* Driver List */}
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <StyledTableCell>Driver Name</StyledTableCell>
-                <StyledTableCell>Driver Phone</StyledTableCell>
-                <StyledTableCell>Vehicle Color</StyledTableCell>
-                <StyledTableCell>Vehicle Licence Plate</StyledTableCell>
-                <StyledTableCell>Driver Location</StyledTableCell>
-                <StyledTableCell>Profile Photo</StyledTableCell>
-                <StyledTableCell>Actions</StyledTableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {paginatedDrivers.map((driver) => (
-                <StyledTableRow key={driver.id}>
-                  <TableCell>{driver.driverName}</TableCell>
-                  <TableCell>{driver.driverPhone}</TableCell>
-                  <TableCell>{driver.vehicleColor}</TableCell>
-                  <TableCell>{driver.vehicleLicencePlate}</TableCell>
-                  <TableCell>{driver.driverLocation}</TableCell>
-                  <TableCell>
-                    {driver.profilePhoto && (
-                      <img
-                        src={`http://localhost:8082/uploads/${driver.profilePhoto}`}
-                        alt={`${driver.driverName} profile`}
-                        width="50"
-                        height="50"
-                        style={{
-                          borderRadius: '50%',
-                          border: '1px solid #1976d2', // Add a border with your preferred color
-                          padding: '2px',
-                        }}
-                      />
-                    )}
-                  </TableCell>
-
-                  <TableCell>
-                    <Button variant="outlined" onClick={() => handleEdit(driver)}>
-                      Edit
-                    </Button>
-                    <Button variant="outlined" color="secondary" onClick={() => handleDelete(driver.id)} sx={{ marginLeft: 1 }}>
-                      Delete
-                    </Button>
-                  </TableCell>
+        {/* Drivers Table Section */}
+        <Paper elevation={2}>
+          <TableContainer component={Paper}>
+            <Table>
+              <TableHead>
+                <StyledTableRow>
+                  <StyledTableCell>Driver Name</StyledTableCell>
+                  <StyledTableCell>Phone</StyledTableCell>
+                  <StyledTableCell>Color</StyledTableCell>
+                  <StyledTableCell>Licence Plate</StyledTableCell>
+                  <StyledTableCell>Location</StyledTableCell>
+                  <StyledTableCell>Password</StyledTableCell> {/* Added Password Column */}
+                  <StyledTableCell>Profile Photo</StyledTableCell> {/* Added Profile Photo Column */}
+                  <StyledTableCell>Action</StyledTableCell>
                 </StyledTableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-
-        {/* Pagination Controls */}
-        <Stack
-          direction="column"
-          spacing={2}
-          alignItems="center"
-          sx={{
-            marginTop: 4,
-            padding: 3,
-            backgroundColor: '#fafafa',
-            border: '1px solid #e0e0e0',
-            borderRadius: '12px',
-            boxShadow: '0 6px 18px rgba(0, 0, 0, 0.1)',
-          }}
-        >
-          <Typography
-            variant="body2"
-            sx={{
-              color: '#616161',
-              fontWeight: '500',
-            }}
-          >
-            {`Showing ${Math.min((page - 1) * rowsPerPage + 1, filteredDrivers.length)} to ${Math.min(
-              page * rowsPerPage,
-              filteredDrivers.length
-            )} of ${filteredDrivers.length} drivers`}
-          </Typography>
+              </TableHead>
+              <TableBody>
+                {paginatedDrivers.map((driver) => (
+                  <StyledTableRow key={driver.id}>
+                    <TableCell>{driver.driverName}</TableCell>
+                    <TableCell>{driver.driverPhone}</TableCell>
+                    <TableCell>{driver.vehicleColor}</TableCell>
+                    <TableCell>{driver.vehicleLicencePlate}</TableCell>
+                    <TableCell>{driver.driverLocation}</TableCell>
+                    <TableCell>{driver.driverPassword}</TableCell> {/* Password Display */}
+                    <TableCell>
+                      {driver.profilePhoto && (
+                        <Avatar
+                          alt="Profile Photo"
+                          src={`http://localhost:8082/uploads/${driver.profilePhoto}`} // Adjust the path if needed
+                          sx={{ width: 40, height: 40 }}
+                        />
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Button variant="contained" color="primary" onClick={() => handleEdit(driver)}>
+                        Edit
+                      </Button>
+                      <Button variant="contained" color="error" onClick={() => handleDelete(driver.id)}>
+                        Delete
+                      </Button>
+                    </TableCell>
+                  </StyledTableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
           <Pagination
             count={Math.ceil(filteredDrivers.length / rowsPerPage)}
             page={page}
             onChange={handlePageChange}
-            shape="rounded"
             color="primary"
             sx={{
-              '& .MuiPaginationItem-root': {
-                padding: '8px 16px',
-                borderRadius: '50px',
-                backgroundColor: '#f5f5f5',
+              display: 'flex',
+              justifyContent: 'center',
+              padding: 2,
+              '.MuiPaginationItem-root': {
+                fontWeight: 'bold',
                 color: '#1976d2',
+                borderRadius: '8px',
                 '&:hover': {
-                  backgroundColor: '#e3f2fd',
+                  backgroundColor: '#f0f0f0',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: '#1976d2',
+                  color: '#fff',
                 },
               },
-              '& .Mui-selected': {
-                backgroundColor: '#1976d2',
-                color: '#ffffff',
-                fontWeight: 'bold',
-                '&:hover': {
-                  backgroundColor: '#1565c0',
-                },
+              '.MuiPagination-ul': {
+                gap: '8px',
               },
             }}
           />
-        </Stack>
 
+        </Paper>
       </Stack>
     </AdminLayout>
   );
