@@ -37,7 +37,8 @@ db.connect((err) => {
         vehicleLicencePlate VARCHAR(50) UNIQUE,
         driverLocation VARCHAR(100),
         driverAvailability BOOLEAN DEFAULT TRUE,
-        profilePhoto VARCHAR(255)
+        profilePhoto VARCHAR(255),
+        driverPassword VARCHAR(255)
       );
     `;
     
@@ -77,41 +78,52 @@ app.get('/drivers', (req, res) => {
 });
 
 // POST add a new driver with profile photo
-app.post('/drivers', (req, res) => {
-  upload.single('profilePhoto')(req, res, (err) => {
-    if (err instanceof multer.MulterError || err) {
-      return res.status(400).json({ error: err.message });
+app.post('/drivers', upload.single('profilePhoto'), (req, res) => {
+  // Log the request body for debugging
+  console.log('Request body:', req.body);
+  console.log('Uploaded file:', req.file);
+
+  const { driverName, driverPhone, vehicleColor, vehicleLicencePlate, driverLocation, driverAvailability, driverPassword } = req.body;
+  const profilePhoto = req.file ? req.file.filename : null;
+
+  if (!driverName || !driverPhone || !vehicleLicencePlate || !driverPassword) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  const query = `
+    INSERT INTO drivers (driverName, driverPhone, vehicleColor, vehicleLicencePlate, driverLocation, driverAvailability, driverPassword, profilePhoto)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+  
+  db.query(query, [driverName, driverPhone, vehicleColor, vehicleLicencePlate, driverLocation, driverAvailability, driverPassword, profilePhoto], (err, result) => {
+    if (err) {
+      console.error('Error inserting driver:', err);
+      res.status(500).json({ error: 'Error inserting driver' });
+    } else {
+      res.status(201).json({ message: 'Driver added successfully' });
     }
-    const { driverName, driverPhone, vehicleColor, vehicleLicencePlate, driverLocation, driverAvailability } = req.body;
-    const profilePhoto = req.file ? req.file.filename : null;
-    
-    const query = 'INSERT INTO drivers (driverName, driverPhone, vehicleColor, vehicleLicencePlate, driverLocation, driverAvailability, profilePhoto) VALUES (?, ?, ?, ?, ?, ?, ?)';
-    db.query(query, [driverName, driverPhone, vehicleColor, vehicleLicencePlate, driverLocation, driverAvailability, profilePhoto], (err, result) => {
-      if (err) {
-        return res.status(500).json({ error: err.message });
-      }
-      res.status(201).json({ message: 'Driver added successfully', driverId: result.insertId });
-    });
   });
 });
 
 // PUT update a driver with or without a new profile photo
-app.put('/drivers/:id', (req, res) => {
-  upload.single('profilePhoto')(req, res, (err) => {
-    if (err instanceof multer.MulterError || err) {
-      return res.status(400).json({ error: err.message });
-    }
-    const { id } = req.params;
-    const { driverName, driverPhone, vehicleColor, vehicleLicencePlate, driverLocation, driverAvailability, existingPhoto } = req.body;
-    const profilePhoto = req.file ? req.file.filename : existingPhoto;  // Retain existing photo if no new file is uploaded
+app.put('/drivers/:id', upload.single('profilePhoto'), (req, res) => {
+  const { driverName, driverPhone, vehicleColor, vehicleLicencePlate, driverLocation, driverAvailability, driverPassword } = req.body;
+  const { id } = req.params;
+  const profilePhoto = req.file ? req.file.filename : req.body.profilePhoto; // Use existing photo if not updated
 
-    const query = 'UPDATE drivers SET driverName = ?, driverPhone = ?, vehicleColor = ?, vehicleLicencePlate = ?, driverLocation = ?, driverAvailability = ?, profilePhoto = ? WHERE id = ?';
-    db.query(query, [driverName, driverPhone, vehicleColor, vehicleLicencePlate, driverLocation, driverAvailability, profilePhoto, id], (err) => {
-      if (err) {
-        return res.status(500).json({ error: err.message });
-      }
+  const query = `
+    UPDATE drivers
+    SET driverName = ?, driverPhone = ?, vehicleColor = ?, vehicleLicencePlate = ?, driverLocation = ?, driverAvailability = ?, driverPassword = ?, profilePhoto = ?
+    WHERE id = ?
+  `;
+  
+  db.query(query, [driverName, driverPhone, vehicleColor, vehicleLicencePlate, driverLocation, driverAvailability, driverPassword, profilePhoto, id], (err, result) => {
+    if (err) {
+      console.error('Error updating driver:', err);
+      res.status(500).json({ error: 'Error updating driver' });
+    } else {
       res.status(200).json({ message: 'Driver updated successfully' });
-    });
+    }
   });
 });
 
