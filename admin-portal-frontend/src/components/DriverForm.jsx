@@ -18,16 +18,17 @@ import {
   Typography,
   Grid,
   styled,
-  Avatar, // Import Avatar here
+  Avatar,
+  IconButton,
+  InputAdornment,
 } from '@mui/material';
 import axios from 'axios';
 import AdminLayout from '../common/AdminLayout';
 import locations from '../config/Locations';
-import { IconButton, InputAdornment } from '@mui/material';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 
-const licensePlatePattern = /^[A-Z]{3}-\d{4}$/; // LICENSE PLATE LOGIC
+const licensePlatePattern = /^[A-Z]{3}-\d{4}$/;
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
   backgroundColor: theme.palette.primary.main,
@@ -53,6 +54,7 @@ const DriverForm = () => {
     driverLocation: '',
     driverPassword: '',
     driverAvailability: true,
+    image: '', // Add an image property here
   });
 
   const [drivers, setDrivers] = useState([]);
@@ -74,46 +76,66 @@ const DriverForm = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setDriver({ ...driver, [name]: value }); // Remove profilePhoto handling
+    setDriver({ ...driver, [name]: value });
   };
 
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
   };
 
+  // New function to handle image selection
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setDriver({ ...driver, image: file }); // Store the file object directly
+    }
+  };
+
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    e.preventDefault(); // Prevent the default form submission
+
+    // Validate required fields
     if (!driver.driverName || !driver.driverPhone || !driver.vehicleLicencePlate || !driver.driverLocation || !driver.driverPassword) {
       setErrorMessage('Please fill out all required fields.');
       return;
     }
 
-    // Validate the license plate format
+    // Validate license plate format
     if (!licensePlatePattern.test(driver.vehicleLicencePlate)) {
-      setErrorMessage('License plate must be in the format "ABN-2024".');
+      setErrorMessage('License plate must be in the format "ABC-1234".');
       return;
     }
 
-    setErrorMessage('');
+    setErrorMessage(''); // Clear previous error messages
 
-    const payload = {
-      driverName: driver.driverName,
-      driverPhone: driver.driverPhone,
-      vehicleColor: driver.vehicleColor,
-      vehicleLicencePlate: driver.vehicleLicencePlate,
-      driverLocation: driver.driverLocation,
-      driverPassword: driver.driverPassword,
-      driverAvailability: driver.driverAvailability,
-    };
+    const payload = new FormData(); // Create a new FormData object
+    payload.append('driverName', driver.driverName);
+    payload.append('driverPhone', driver.driverPhone);
+    payload.append('vehicleColor', driver.vehicleColor);
+    payload.append('vehicleLicencePlate', driver.vehicleLicencePlate);
+    payload.append('driverLocation', driver.driverLocation);
+    payload.append('driverPassword', driver.driverPassword);
+    payload.append('driverAvailability', driver.driverAvailability);
+
+    // Append the image file directly if it's selected
+    if (driver.image) {
+      payload.append('image', driver.image); // Directly append the image file
+    }
+
+    console.log("Payload to be sent:", payload); // Log the payload for debugging
 
     try {
       if (editingId) {
-        await axios.put(`http://localhost:8082/drivers/${editingId}`, payload);
+        await axios.put(`http://localhost:8082/drivers/${editingId}`, payload, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
       } else {
-        await axios.post('http://localhost:8082/drivers', payload);
+        await axios.post('http://localhost:8082/drivers', payload, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
       }
 
-      // Resetting form
+      // Reset the form fields after successful submission
       setDriver({
         driverName: '',
         driverPhone: '',
@@ -122,21 +144,37 @@ const DriverForm = () => {
         driverLocation: '',
         driverPassword: '',
         driverAvailability: true,
+        image: null, // Reset image field
       });
-      setEditingId(null);
-      fetchDrivers();
+      setEditingId(null); // Reset editing ID
+      fetchDrivers(); // Fetch the updated list of drivers
     } catch (error) {
       console.error('Error submitting driver data:', error);
       setErrorMessage('Error submitting driver data');
     }
   };
 
-  const handleEdit = (driver) => {
-    setDriver({
-      ...driver,
-    });
-    setEditingId(driver.id);
-  };
+  const handleEdit = (driverToEdit) => {
+    setDriver((prevState) => ({
+      ...prevState,
+      driverName: driverToEdit.driverName,
+      driverPhone: driverToEdit.driverPhone,
+      vehicleColor: driverToEdit.vehicleColor,
+      vehicleLicencePlate: driverToEdit.vehicleLicencePlate,
+      driverLocation: driverToEdit.driverLocation,
+      driverPassword: driverToEdit.driverPassword,
+      driverAvailability: driverToEdit.driverAvailability,
+      // Keep the image field intact
+    }));
+    setEditingId(driverToEdit.id);
+  };  
+
+  // const handleEdit = (driver) => {
+  //   setDriver({
+  //     ...driver,
+  //   });
+  //   setEditingId(driver.id);
+  // };
 
   const handleDelete = async (id) => {
     const confirmDelete = window.confirm('Are you sure you want to delete this driver?');
@@ -226,14 +264,14 @@ const DriverForm = () => {
                 <TextField
                   label="Password"
                   name="driverPassword"
-                  type={showPassword ? 'text' : 'password'} // Toggle between text and password
+                  type={showPassword ? 'text' : 'password'}
                   value={driver.driverPassword}
                   onChange={handleChange}
                   fullWidth
                   required
-                  inputProps={{ maxLength: 8, minLength: 8 }} // Enforce 8-character limit
-                  error={driver.driverPassword.length !== 8} // Show error if not exactly 8 characters
-                  helperText={driver.driverPassword.length !== 8 ? "Password must be exactly 8 characters" : ""} // Error message
+                  inputProps={{ maxLength: 8, minLength: 8 }}
+                  error={driver.driverPassword.length !== 8}
+                  helperText={driver.driverPassword.length !== 8 ? "Password must be exactly 8 characters" : ""}
                   InputProps={{
                     endAdornment: (
                       <InputAdornment position="end">
@@ -247,6 +285,27 @@ const DriverForm = () => {
                     ),
                   }}
                 />
+              </Grid>
+
+              {/* Image Upload Field */}
+              <Grid item xs={12} sm={3}>
+                {driver.image && (
+                  <Avatar
+                    src={`data:image/png;base64,${driver.image}`}
+                    alt="Uploaded Driver Image"
+                    sx={{ width: 100, height: 100, marginBottom: 1 }} // Adjust size and margin as needed
+                  />
+                )}
+                <Button variant="contained" component="label" fullWidth>
+                  Upload Image
+                  <input
+                    type="file"
+                    hidden
+                    onChange={handleImageChange} // Call the handler on file change
+                    accept="image/*" // Accept image files only
+                  />
+                </Button>
+
               </Grid>
 
               <Grid item xs={12} sm={3}>
@@ -285,8 +344,17 @@ const DriverForm = () => {
                     <TableCell>{driver.driverLocation}</TableCell>
                     <TableCell>{driver.driverPassword}</TableCell>
                     <TableCell>
-                      <Avatar>{driver.driverName.charAt(0).toUpperCase()}</Avatar> {/* Show the first letter as Avatar in uppercase */}
+                      {driver.image ? (
+                        <Avatar
+                          src={`data:image/png;base64,${driver.image}`}
+                          alt="Driver"
+                          sx={{ width: 50, height: 50 }}
+                        />
+                      ) : (
+                        <Avatar>{driver.driverName.charAt(0).toUpperCase()}</Avatar>
+                      )}
                     </TableCell>
+
                     <TableCell>
                       <Button variant="contained" color="primary" onClick={() => handleEdit(driver)}>
                         Edit

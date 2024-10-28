@@ -5,23 +5,35 @@ const cors = require('cors');
 const app = express();
 const PORT = 8082;
 
+const multer = require('multer');
+// const bodyParser = require('body-parser');
+
 app.use(cors());
 app.use(bodyParser.json());
+
+app.use(express.json({ limit: '10mb' })); // Increase this value if necessary
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // MySQL connection
 const db = mysql.createConnection({
   host: 'localhost',
   user: 'root',
   password: '',
-  database: 'taxidb'
+  database: 'taxidb',
+  connectTimeout: 10000, // Increase the connection timeout
 });
+
+// Multer configuration for handling file uploads
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
+
 
 db.connect((err) => {
   if (err) {
     console.error('Error connecting to the database:', err);
   } else {
     console.log('Connected to MySQL');
-    
+
     // Create drivers table
     const createTableQuery = `
       CREATE TABLE IF NOT EXISTS drivers (
@@ -32,10 +44,11 @@ db.connect((err) => {
         vehicleLicencePlate VARCHAR(50) UNIQUE,
         driverLocation VARCHAR(100),
         driverAvailability BOOLEAN DEFAULT TRUE,
-        driverPassword VARCHAR(255)
+        driverPassword VARCHAR(255),
+        image LONGBLOB
       );
     `;
-    
+
     db.query(createTableQuery, (err) => {
       if (err) {
         console.error('Error creating drivers table:', err);
@@ -48,35 +61,45 @@ db.connect((err) => {
 
 // GET all drivers
 app.get('/drivers', (req, res) => {
-  db.query('SELECT * FROM drivers', (err, results) => {
+  const query = 'SELECT id, driverName, driverPhone, vehicleColor, vehicleLicencePlate, driverLocation, driverAvailability, driverPassword, image FROM drivers';
+  db.query(query, (err, results) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
-    res.json(results);
+    // Convert image buffers to base64
+    const driversWithImage = results.map(driver => ({
+      ...driver,
+      image: driver.image ? Buffer.from(driver.image).toString('base64') : null,
+    }));
+    res.json(driversWithImage);
   });
 });
 
 // POST add a new driver
-app.post('/drivers', (req, res) => {
+app.post('/drivers', upload.single('image'), (req, res) => {
   const { driverName, driverPhone, vehicleColor, vehicleLicencePlate, driverLocation, driverAvailability, driverPassword } = req.body;
+  const image = req.file ? req.file.buffer : null; // Get the image data
+
+  console.log("Image Buffer:", req.file); // Log the received file
 
   if (!driverName || !driverPhone || !vehicleLicencePlate || !driverPassword) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
   const query = `
-      INSERT INTO drivers (driverName, driverPhone, vehicleColor, vehicleLicencePlate, driverLocation, driverAvailability, driverPassword)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO drivers (driverName, driverPhone, vehicleColor, vehicleLicencePlate, driverLocation, driverAvailability, driverPassword, image)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
-  db.query(query, [driverName, driverPhone, vehicleColor, vehicleLicencePlate, driverLocation, driverAvailability, driverPassword], (err) => {
+  db.query(query, [driverName, driverPhone, vehicleColor, vehicleLicencePlate, driverLocation, driverAvailability, driverPassword, image], (err) => {
     if (err) {
       console.error('Error inserting driver:', err);
-      return res.status(500).json({ error: 'Error inserting driver: ' + err.message }); // Provide more specific error details
+      return res.status(500).json({ error: 'Error inserting driver: ' + err.message });
     }
     res.status(201).json({ message: 'Driver added successfully' });
   });
 });
+
 
 // PUT update a driver
 app.put('/drivers/:id', (req, res) => {
