@@ -28,8 +28,6 @@ import locations from '../config/Locations';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 
-const licensePlatePattern = /^[A-Z]{3}-\d{4}$/;
-
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
   backgroundColor: theme.palette.primary.main,
   color: theme.palette.common.white,
@@ -54,7 +52,8 @@ const DriverForm = () => {
     driverLocation: '',
     driverPassword: '',
     driverAvailability: true,
-    image: '', // Add an image property here
+    image: null,
+    previewImage: null,
   });
 
   const [drivers, setDrivers] = useState([]);
@@ -83,59 +82,50 @@ const DriverForm = () => {
     setSearchTerm(e.target.value);
   };
 
-  // New function to handle image selection
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
+  const handleImageChange = (event) => {
+    const file = event.target.files[0];
     if (file) {
-      setDriver({ ...driver, image: file }); // Store the file object directly
+      setDriver({
+        ...driver,
+        image: file,
+        previewImage: URL.createObjectURL(file),
+      });
     }
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault(); // Prevent the default form submission
+    e.preventDefault();
 
-    // Validate required fields
-    if (!driver.driverName || !driver.driverPhone || !driver.vehicleLicencePlate || !driver.driverLocation || !driver.driverPassword) {
-      setErrorMessage('Please fill out all required fields.');
-      return;
-    }
+    // Prepare form data for submission
+    const formData = new FormData();
+    formData.append('driverName', driver.driverName);
+    formData.append('driverPhone', driver.driverPhone);
+    formData.append('vehicleColor', driver.vehicleColor);
+    formData.append('vehicleLicencePlate', driver.vehicleLicencePlate);
+    formData.append('driverLocation', driver.driverLocation);
+    formData.append('driverAvailability', driver.driverAvailability);
+    formData.append('driverPassword', driver.driverPassword);
 
-    // Validate license plate format
-    if (!licensePlatePattern.test(driver.vehicleLicencePlate)) {
-      setErrorMessage('License plate must be in the format "ABC-1234".');
-      return;
-    }
-
-    setErrorMessage(''); // Clear previous error messages
-
-    const payload = new FormData(); // Create a new FormData object
-    payload.append('driverName', driver.driverName);
-    payload.append('driverPhone', driver.driverPhone);
-    payload.append('vehicleColor', driver.vehicleColor);
-    payload.append('vehicleLicencePlate', driver.vehicleLicencePlate);
-    payload.append('driverLocation', driver.driverLocation);
-    payload.append('driverPassword', driver.driverPassword);
-    payload.append('driverAvailability', driver.driverAvailability);
-
-    // Append the image file directly if it's selected
     if (driver.image) {
-      payload.append('image', driver.image); // Directly append the image file
+      formData.append('image', driver.image);
     }
-
-    console.log("Payload to be sent:", payload); // Log the payload for debugging
 
     try {
       if (editingId) {
-        await axios.put(`http://localhost:8082/drivers/${editingId}`, payload, {
+        // For update, ensure `editingId` is passed in URL
+        const response = await axios.put(`http://localhost:8082/drivers/${editingId}`, formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
+        console.log("Driver updated successfully:", response.data);
       } else {
-        await axios.post('http://localhost:8082/drivers', payload, {
+        // For adding new driver
+        const response = await axios.post(`http://localhost:8082/drivers`, formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
+        console.log("Driver added successfully:", response.data);
       }
-
-      // Reset the form fields after successful submission
+      fetchDrivers(); // Refresh the list after submit
+      setEditingId(null); // Clear editing mode
       setDriver({
         driverName: '',
         driverPhone: '',
@@ -144,19 +134,19 @@ const DriverForm = () => {
         driverLocation: '',
         driverPassword: '',
         driverAvailability: true,
-        image: null, // Reset image field
+        image: null,
+        previewImage: null,
       });
-      setEditingId(null); // Reset editing ID
-      fetchDrivers(); // Fetch the updated list of drivers
     } catch (error) {
-      console.error('Error submitting driver data:', error);
-      setErrorMessage('Error submitting driver data');
+      console.error("Error submitting driver data:", error.response ? error.response.data : error);
     }
   };
 
+
+
   const handleEdit = (driverToEdit) => {
-    setDriver((prevState) => ({
-      ...prevState,
+    console.log("Editing driver:", driverToEdit); // Log driver data being edited
+    setDriver({
       driverName: driverToEdit.driverName,
       driverPhone: driverToEdit.driverPhone,
       vehicleColor: driverToEdit.vehicleColor,
@@ -164,17 +154,9 @@ const DriverForm = () => {
       driverLocation: driverToEdit.driverLocation,
       driverPassword: driverToEdit.driverPassword,
       driverAvailability: driverToEdit.driverAvailability,
-      // Keep the image field intact
-    }));
+    });
     setEditingId(driverToEdit.id);
-  };  
-
-  // const handleEdit = (driver) => {
-  //   setDriver({
-  //     ...driver,
-  //   });
-  //   setEditingId(driver.id);
-  // };
+  };
 
   const handleDelete = async (id) => {
     const confirmDelete = window.confirm('Are you sure you want to delete this driver?');
@@ -287,26 +269,27 @@ const DriverForm = () => {
                 />
               </Grid>
 
-              {/* Image Upload Field */}
-              <Grid item xs={12} sm={3}>
-                {driver.image && (
-                  <Avatar
-                    src={`data:image/png;base64,${driver.image}`}
-                    alt="Uploaded Driver Image"
-                    sx={{ width: 100, height: 100, marginBottom: 1 }} // Adjust size and margin as needed
-                  />
-                )}
-                <Button variant="contained" component="label" fullWidth>
-                  Upload Image
-                  <input
-                    type="file"
-                    hidden
-                    onChange={handleImageChange} // Call the handler on file change
-                    accept="image/*" // Accept image files only
-                  />
-                </Button>
-
-              </Grid>
+              {/* Image Upload Field - Only for adding a new driver */}
+              {!editingId && ( // Only show when not editing
+                <Grid item xs={12} sm={3}>
+                  {driver.previewImage && (
+                    <Avatar
+                      src={driver.previewImage}
+                      alt="Uploaded Driver Image"
+                      sx={{ width: 100, height: 100, marginBottom: 1 }}
+                    />
+                  )}
+                  <Button variant="contained" component="label" fullWidth>
+                    Upload Image
+                    <input
+                      type="file"
+                      hidden
+                      onChange={handleImageChange}
+                      accept="image/*"
+                    />
+                  </Button>
+                </Grid>
+              )}
 
               <Grid item xs={12} sm={3}>
                 <Button type="submit" variant="contained" fullWidth>
@@ -329,8 +312,8 @@ const DriverForm = () => {
                   <StyledTableCell>Color</StyledTableCell>
                   <StyledTableCell>Licence Plate</StyledTableCell>
                   <StyledTableCell>Location</StyledTableCell>
-                  <StyledTableCell>Password</StyledTableCell> {/* Added Password Column */}
-                  <StyledTableCell>Initial</StyledTableCell>
+                  <StyledTableCell>Password</StyledTableCell>
+                  <StyledTableCell>Profile Pic</StyledTableCell>
                   <StyledTableCell>Action</StyledTableCell>
                 </StyledTableRow>
               </TableHead>

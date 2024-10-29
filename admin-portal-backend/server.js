@@ -2,17 +2,20 @@ const express = require('express');
 const mysql = require('mysql2');
 const bodyParser = require('body-parser');
 const cors = require('cors');
+const multer = require('multer');
+
 const app = express();
 const PORT = 8082;
 
-const multer = require('multer');
-// const bodyParser = require('body-parser');
+// Multer configuration for handling file uploads
+const upload = multer();
 
 app.use(cors());
-app.use(bodyParser.json());
+app.use(bodyParser.json()); // Use body-parser for JSON data on other routes
 
-app.use(express.json({ limit: '10mb' })); // Increase this value if necessary
-app.use(express.urlencoded({ limit: '10mb', extended: true }));
+// Only apply these parsers to non-file routes
+// app.use(express.json({ limit: '10mb' }));
+// app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // MySQL connection
 const db = mysql.createConnection({
@@ -22,11 +25,6 @@ const db = mysql.createConnection({
   database: 'taxidb',
   connectTimeout: 10000, // Increase the connection timeout
 });
-
-// Multer configuration for handling file uploads
-const storage = multer.memoryStorage();
-const upload = multer({ storage });
-
 
 db.connect((err) => {
   if (err) {
@@ -100,25 +98,65 @@ app.post('/drivers', upload.single('image'), (req, res) => {
   });
 });
 
-
 // PUT update a driver
-app.put('/drivers/:id', (req, res) => {
+app.put('/drivers/:id', upload.single('image'), (req, res) => {
   const { driverName, driverPhone, vehicleColor, vehicleLicencePlate, driverLocation, driverAvailability, driverPassword } = req.body;
   const { id } = req.params;
+  const image = req.file ? req.file.buffer : null; // Access the uploaded image buffer
 
-  const query = `
-    UPDATE drivers
-    SET driverName = ?, driverPhone = ?, vehicleColor = ?, vehicleLicencePlate = ?, driverLocation = ?, driverAvailability = ?, driverPassword = ?
-    WHERE id = ?
-  `;
+  console.log('Incoming update request:', req.body); // Log the incoming request data
 
-  db.query(query, [driverName, driverPhone, vehicleColor, vehicleLicencePlate, driverLocation, driverAvailability, driverPassword, id], (err) => {
+  const updates = [];
+  const values = [];
+
+  // Conditionally add fields if present
+  if (driverName) {
+    updates.push('driverName = ?');
+    values.push(driverName);
+  }
+  if (driverPhone) {
+    updates.push('driverPhone = ?');
+    values.push(driverPhone);
+  }
+  if (vehicleColor) {
+    updates.push('vehicleColor = ?');
+    values.push(vehicleColor);
+  }
+  if (vehicleLicencePlate) {
+    updates.push('vehicleLicencePlate = ?');
+    values.push(vehicleLicencePlate);
+  }
+  if (driverLocation) {
+    updates.push('driverLocation = ?');
+    values.push(driverLocation);
+  }
+  if (driverAvailability !== undefined) {
+    updates.push('driverAvailability = ?');
+    values.push(driverAvailability);
+  }
+  if (driverPassword) {
+    updates.push('driverPassword = ?');
+    values.push(driverPassword);
+  }
+  if (image) {
+    updates.push('image = ?');
+    values.push(image); // Only push the image buffer if it’s present
+  }
+
+  // Check if there are any fields to update
+  if (updates.length === 0) {
+    return res.status(400).json({ error: 'No fields to update' });
+  }
+
+  values.push(id);
+  const query = `UPDATE drivers SET ${updates.join(', ')} WHERE id = ?`;
+
+  db.query(query, values, (err) => {
     if (err) {
       console.error('Error updating driver:', err);
-      res.status(500).json({ error: 'Error updating driver' });
-    } else {
-      res.status(200).json({ message: 'Driver updated successfully' });
+      return res.status(500).json({ error: 'Error updating driver' });
     }
+    res.status(200).json({ message: 'Driver updated successfully' });
   });
 });
 
