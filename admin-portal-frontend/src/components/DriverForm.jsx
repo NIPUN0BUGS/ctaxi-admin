@@ -64,6 +64,9 @@ const DriverForm = () => {
   const [rowsPerPage] = useState(5);
   const [showPassword, setShowPassword] = useState(false);
 
+  const licensePlatePattern = /^[a-z]{3}-\d{4}$/; // Pattern: "abn-3256"
+
+  
   useEffect(() => {
     fetchDrivers();
   }, []);
@@ -75,8 +78,30 @@ const DriverForm = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+
+    // Validate vehicleLicencePlate format
+    if (name === 'vehicleLicencePlate') {
+      const licensePlatePattern = /^[a-z]{3}-\d{4}$/;
+      if (!licensePlatePattern.test(value) && value !== '') {
+        setErrorMessage('Licence plate must follow the format: abn-3256');
+      } else {
+        setErrorMessage(''); // Clear error message if format is correct
+      }
+    }
+
+    // Validate driverPhone format
+    if (name === 'driverPhone') {
+      const phonePattern = /^\+947\d{8}$/;
+      if (!phonePattern.test(value) && value !== '') {
+          setErrorMessage('Phone number must follow the format: +947XXXXXXXX');
+      } else {
+          setErrorMessage(''); // Clear error message if format is correct
+      }
+  }
+
     setDriver({ ...driver, [name]: value });
-  };
+};
+
 
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
@@ -125,7 +150,7 @@ const DriverForm = () => {
         console.log("Driver added successfully:", response.data);
       }
       fetchDrivers(); // Refresh the list after submit
-      setEditingId(null); // Clear editing mode
+      setEditingId(null); 
       setDriver({
         driverName: '',
         driverPhone: '',
